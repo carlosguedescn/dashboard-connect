@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{margin:0;font-family:system-ui;background:#121212;color:#f5f5f5}
+.container{padding:16px;max-width:480px;margin:auto}
+h1{text-align:center}
+select{width:100%;padding:12px;margin-bottom:10px;border-radius:12px;border:none;background:#2a2a2a;color:white}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi{background:#1e1e1e;padding:14px;border-radius:16px}
+.kpi span{font-size:22px;color:#f2c94c}
+.section{margin-top:16px;background:#1e1e1e;padding:14px;border-radius:18px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Dashboard</h1>
+
+<select id="year"></select>
+<select id="month"></select>
+
+<div class="kpis">
+<div class="kpi"><span id="rev"></span><div>Faturamento</div></div>
+<div class="kpi"><span id="exp"></span><div>Despesas</div></div>
+<div class="kpi"><span id="profit"></span><div>Lucro</div></div>
+<div class="kpi"><span id="margin"></span><div>Margem</div></div>
+</div>
+
+<div class="section"><canvas id="bar"></canvas></div>
+<div class="section"><canvas id="donut"></canvas></div>
+</div>
+
+<script>
+const CSV_URL = "dados_dashboard.csv";
+
+const monthMap = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+
+fetch(CSV_URL).then(r=>r.text()).then(csv=>{
+ const rows = csv.trim().split("\n");
+ const headers = rows.shift().split(",");
+ const i = n => headers.indexOf(n);
+
+ const data = rows.map(r=>{
+   const c=r.split(",");
+   return {
+     ano:c[i("ANO")],
+     mes:c[i("MES")],
+     fat:+c[i("FATURAMENTO")],
+     des:+c[i("DESPESAS")],
+     luc:+c[i("LUCRO")]
+   };
+ });
+
+ init(data);
+});
+
+function init(data){
+ const y=year,m=month;
+
+ const years=[...new Set(data.map(d=>d.ano))];
+ const months=[...new Set(data.map(d=>d.mes))];
+
+ y.innerHTML=years.map(v=>`<option>${v}</option>`).join("");
+ m.innerHTML=months.map(v=>`<option>${v}</option>`).join("");
+
+ const now=new Date();
+ y.value=String(now.getFullYear());
+ m.value=monthMap[now.getMonth()];
+
+ let bar,donut;
+
+ y.onchange=m.onchange=update;
+ update();
+
+ function update(){
+  let f=data.filter(d=>d.ano==y.value && d.mes==m.value);
+
+  let rev=f.reduce((a,b)=>a+b.fat,0);
+  let exp=f.reduce((a,b)=>a+b.des,0);
+  let prof=f.reduce((a,b)=>a+b.luc,0);
+  let marg=rev?((prof/rev)*100).toFixed(1):0;
+
+  revEl.textContent=rev.toLocaleString();
+  expEl.textContent=exp.toLocaleString();
+  profitEl.textContent=prof.toLocaleString();
+  marginEl.textContent=marg+"%";
+
+  bar&&bar.destroy();
+  donut&&donut.destroy();
+
+  bar=new Chart(barEl,{type:'bar',data:{labels:[m.value],datasets:[
+   {label:'Faturamento',data:[rev],backgroundColor:'#f2c94c'},
+   {label:'Despesas',data:[exp],backgroundColor:'#444'},
+   {label:'Lucro',data:[prof],backgroundColor:'#2ecc71'}]}});
+
+  donut=new Chart(donutEl,{type:'doughnut',data:{
+   labels:['Despesas','Lucro'],
+   datasets:[{data:[exp,prof],backgroundColor:['#444','#2ecc71']}]
+  }});
+ }
+}
+
+const revEl=rev,expEl=exp,profitEl=profit,marginEl=margin;
+const barEl=bar,donutEl=donut;
+</script>
+</body>
+</html>
