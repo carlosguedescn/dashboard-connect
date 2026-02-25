@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{margin:0;font-family:system-ui;background:#121212;color:#f5f5f5}
+.container{padding:16px;max-width:480px;margin:auto}
+h1{text-align:center;font-weight:600}
+select{width:100%;padding:12px;margin-bottom:10px;border-radius:12px;border:none;background:#2a2a2a;color:white}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi{background:#1e1e1e;padding:14px;border-radius:16px}
+.kpi span{font-size:22px;color:#f2c94c}
+.section{margin-top:16px;background:#1e1e1e;padding:14px;border-radius:18px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Dashboard</h1>
+<select id="year"></select>
+<select id="month"></select>
+
+<div class="kpis">
+  <div class="kpi"><span id="rev"></span><div>Faturamento</div></div>
+  <div class="kpi"><span id="exp"></span><div>Despesas</div></div>
+  <div class="kpi"><span id="profit"></span><div>Lucro</div></div>
+  <div class="kpi"><span id="margin"></span><div>Margem</div></div>
+</div>
+
+<div class="section"><canvas id="bar"></canvas></div>
+<div class="section"><canvas id="line"></canvas></div>
+<div class="section"><canvas id="donut"></canvas></div>
+</div>
+
+<script>
+const CSV_URL = "dados_organizados.csv";
+
+fetch(CSV_URL)
+ .then(r => r.text())
+ .then(csv => {
+   const rows = csv.trim().split("\n");
+   const headers = rows.shift().split(",");
+   const idx = name => headers.indexOf(name);
+
+   const data = rows.map(r => {
+     const c = r.split(",");
+     return {
+       ano: c[idx("ANO")],
+       mes: c[idx("MES")],
+       faturamento: +c[idx("FATURAMENTO")],
+       despesas: +c[idx("DESPESAS")],
+       lucro: +c[idx("LUCRO")],
+       caixa: +c[idx("CAIXA")]
+     };
+   });
+
+   init(data);
+ });
+
+function init(data){
+ const y=year,m=month;
+ y.innerHTML='<option>Todos</option>'+[...new Set(data.map(d=>d.ano))].map(v=>'<option>'+v+'</option>').join("");
+ m.innerHTML='<option>Todos</option>'+[...new Set(data.map(d=>d.mes))].map(v=>'<option>'+v+'</option>').join("");
+
+ let bar,line,donut;
+ y.onchange=m.onchange=update;
+ update();
+
+ function update(){
+  let f=data.filter(d=>(y.value=="Todos"||d.ano==y.value)&&(m.value=="Todos"||d.mes==m.value));
+  let rev=f.reduce((a,b)=>a+b.faturamento,0);
+  let exp=f.reduce((a,b)=>a+b.despesas,0);
+  let prof=f.reduce((a,b)=>a+b.lucro,0);
+  let marg=rev?((prof/rev)*100).toFixed(1):0;
+
+  revEl.textContent=rev.toLocaleString();
+  expEl.textContent=exp.toLocaleString();
+  profitEl.textContent=prof.toLocaleString();
+  marginEl.textContent=marg+'%';
+
+  let labels=f.map(d=>d.mes);
+
+  bar&&bar.destroy(); line&&line.destroy(); donut&&donut.destroy();
+
+  bar=new Chart(barEl,{type:'bar',data:{labels,datasets:[
+   {label:'Faturamento',data:f.map(d=>d.faturamento),backgroundColor:'#f2c94c'},
+   {label:'Despesas',data:f.map(d=>d.despesas),backgroundColor:'#444'},
+   {label:'Lucro',data:f.map(d=>d.lucro),backgroundColor:'#2ecc71'}]}});
+
+  line=new Chart(lineEl,{type:'line',data:{labels,datasets:[
+   {label:'Caixa',data:f.map(d=>d.caixa),borderColor:'#f2c94c'}]}});
+
+  donut=new Chart(donutEl,{type:'doughnut',data:{
+   labels:['Despesas','Lucro'],
+   datasets:[{data:[exp,prof],backgroundColor:['#444','#2ecc71']}]
+  }});
+ }
+}
+
+const revEl=rev,expEl=exp,profitEl=profit,marginEl=margin;
+const barEl=bar,lineEl=line,donutEl=donut;
+</script>
+</body>
+</html>
